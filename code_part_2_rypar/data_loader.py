@@ -1,0 +1,160 @@
+from nltk.corpus import stopwords
+import os, pickle
+import numpy as np
+
+import torch
+print(torch.__version__)
+import torch.utils.data
+
+
+def load_word_embeddings(word_embedding_filename, embedding_length):
+    with open(word_embedding_filename, 'r') as f:
+        word_embeddings = {}
+        for i, line in enumerate(f):
+            line = line.strip()
+            if not line:
+                continue
+
+            vec = line.split()
+            if len(vec) != embedding_length + 1:
+                continue
+            
+            label = vec[0].lower()
+            vec = np.array([float(x) for x in vec[1:]], np.float32)            
+            assert len(vec) == embedding_length
+            word_embeddings[label] = vec
+        
+        print('Loaded {:d} embedding vectors'.format(i))
+    return word_embeddings
+
+def load_flickr_captions(args, split):
+    stop_words = set(stopwords.words('english'))
+    split_fn = os.path.join(args.feat_path, split + '.txt')
+    images = [im.strip() for im in open(split_fn, 'r')]
+    im2idx = dict(zip(images, range(len(images))))
+    images = set(images)
+    caption_fn = os.path.join(args.feat_path, 'captions')
+    im2captions = {}
+    with open(caption_fn, 'r') as f:
+        for line in f:
+            line = line.strip().lower().split()
+            im = line[0].split('.')[0]
+            if im in images:
+                if im not in im2captions:
+                    im2captions[im] = []
+
+                im2captions[im].append([token for token in line[1:-1] if token not in stop_words])  # last token = '.', thus [1:-1]
+
+    assert(len(im2idx) == len(im2captions))
+    captions = []
+    cap2im = []
+    for im, idx in im2idx.items():
+        im_captions = im2captions[im]
+        captions += im_captions
+        cap2im.append(np.ones(len(im_captions), np.int32) * idx)
+
+    cap2im = np.hstack(cap2im)
+    return captions, cap2im, im2idx
+
+def load_imfeature_embeddings(args, split):
+    split_fn = os.path.join(args.feat_path, split + '.txt')
+    images = [im.strip() for im in open(split_fn, 'r')]
+    
+    im_features = {}
+    im_feat_path = os.path.join(args.feat_path, 'image_features.csv')
+    with open(im_feat_path, 'r') as f:
+        for i, line in enumerate(f):
+            tmp = line.split('\n')
+            tmp = tmp[0].split(' ', 1)
+            if len(tmp) == 2 and tmp[0] in images:
+                im_features[str(tmp[0].split('.')[0])] = tmp[1]
+    return im_features
+            
+class DatasetLoader:
+    """ Dataset loader class that loads feature matrices from given paths and
+        create shuffled batch for training, unshuffled batch for evaluation.
+    """
+    def __init__(self, args, split='train'):
+        self.captions, self.cap2im, self.im2idx = load_flickr_captions(args, split)
+        
+        if not args.given_im_features:
+          # LOAD IMAGE FEATURES USED IN PAPER
+          feat_path = os.path.join(args.feat_path, split + '_features.npy')
+        else:
+          # LOAD GIVEN IMAGE FEATURES
+          feat_path = os.path.join(args.feat_path, split + '_im_features.npy')
+          
+        self.im_feats = np.load(feat_path, allow_pickle=True)
+        print('Loading features from', feat_path)
+
+        if split == 'val':
+            num_images = 1000
+            self.im_feats = self.im_feats[:num_images]
+            subset_ims = self.cap2im < num_images
+            self.captions = [caption for caption, is_val in zip(self.captions, subset_ims) if is_val]
+            self.cap2im = [im for im, is_val in zip(self.cap2im, subset_ims) if is_val]
+
+        assert len(self.cap2im) == len(self.captions)
+        if split != 'train':
+            self.labels = np.zeros((len(self.cap2im), len(self.im_feats)), np.float)
+            self.labels[(range(len(self.cap2im)), self.cap2im)] = 1
+        else:
+            self.im2cap = {}
+            for cap, im in enumerate(self.cap2im):
+                if im not in self.im2cap:
+                    self.im2cap[im] = []
+
+                self.im2cap[im].append(cap)
+
+        print('Loading complete')
+        self.split = split
+        self.sample_size = args.sample_size
+
+    def build_vocab(self, cache_filename, word_embeddings_filename=None, embedding_length=300):
+        if os.path.exists(cache_filename):
+            vocab_data = pickle.load(open(cache_filename, 'rb'))
+            self.max_length = vocab_data['max_length']
+            self.tok2idx = vocab_data['tok2idx']
+            vecs = vocab_data['vecs']
+        else:
+            assert word_embeddings_filename is not None
+            word_embeddings = load_word_embeddings(word_embeddings_filename, embedding_length)
+            self.max_length = 0
+            vocab = set()
+            for caption in self.captions:
+                tokens = [token for token in caption if token in word_embeddings]
+                vocab.update(tokens)
+                self.max_length = max(self.max_length, len(tokens))
+
+            vocab = list(vocab)
+            # +1 for a padding vector which *must* be the 0th index
+            self.tok2idx = dict(zip(vocab, range(1, len(vocab) + 1)))
+            vecs = np.zeros((len(vocab) + 1, embedding_length), np.float32)
+            for i, token in enumerate(vocab):
+                vecs[i + 1] = word_embeddings[token]
+            
+            vocab_data = {'max_length' : self.max_length,
+                          'tok2idx' : self.tok2idx,
+                          'vecs' : vecs}
+
+            pickle.dump(vocab_data, open(cache_filename, 'wb'))
+
+        self.sent_feats = np.zeros((len(self.captions), self.max_length), np.int64)
+        for i, caption in enumerate(self.captions):
+            tokens = [self.tok2idx[token] for token in caption if token in self.tok2idx]
+            self.sent_feats[i, :len(tokens)] = tokens
+
+        return vecs
+
+    def __len__(self):
+        return len(self.captions)
+
+    def __getitem__(self, index):
+        im = self.cap2im[index]
+        im_feat = self.im_feats[self.cap2im[index]]
+        sample_index = np.random.choice(
+            [i for i in self.im2cap[im] if i != index],
+            self.sample_size - 1, replace=False)
+        sample_index = sorted(np.append(sample_index, index))
+        sent_feat = self.sent_feats[sample_index]
+        return im_feat, sent_feat

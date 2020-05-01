@@ -1,0 +1,18 @@
+Instead of using BOW which basically stores only presence/non-presence of words without any syntactical information, I have used pretrained Mt.GrOVLE embedding, which is very conveninent for cross-modal retrieval.
+
+Graph Oriented Vision-Language Embedding (GrOVLE), which is adapted from Word2Vec using WordNet and an original visual-language graph built from Visual Genome, providing a ready-to-use vision-language embedding. More info how it was trained etc. (http://ai.bu.edu/grovle/).
+
+How it was used:
+Each caption of some image is list of words. Then this list is represented using GrOVLE embedding of given dimension (300 in our case). So GrOVLE is a dictionary (word: embedding vector), in code stored as vecs, which consists of several thousands of words, with each word having embedding vector of given length. Those GrOVLE embedding vectors are part of training, so they are finetuned (using nn.Embedding).
+
+Then each word in each caption is substitued by its particular embedding vector. 
+Short example of caption processing pipeline: 
+-> "A yellow car standing in front of shopping mall." -- given caption
+-> [yellow, car, standing, shopping, mall] -- removing stop words and lowering the words
+-> [10, 4, 5, 6, 7, 0, 0, 0, 0, 0] -- word2index transformation
+-> [embed_vec10, embed_vec_4, ..., embed_vec7, 0, ..., 0] -- caption represented by embedding vectors, where each mbedd vector has shape (1,300)
+-> avg = sum(embed_vectors) / number_of_words -- calculation of average embed vector for given caption
+-> mapper_t(avg) -- average vector is fetched into the fully connected block (mapper_t) and returns vector of lenght [bits (32 in our case)] 
+
+
+

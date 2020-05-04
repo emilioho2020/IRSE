@@ -33,9 +33,9 @@ def main():
     print(X.shape)    
     nb_of_words = X.shape[1]
     print("Size of vocabulary = {}".format(nb_of_words))
+    pickle.dump(vectorizer, open("./models/vectorizer.pickle","wb"))
     return vectorizer.get_feature_names()
-    #pickle.dump(vectorizer, open("./models/vectorizer.pickle","wb"))
-    #truncated_representation(X,vectorizer)
+    #truncated_repesentation(X,vectorizer)
     
 def truncated_representation(X, vectorizer):
     trunc = TruncatedSVD(TXT_DIMENSION)
@@ -67,15 +67,15 @@ def get_test():
 
 def get_doc_sentences(file_nr):
     sentences_data = get_sentence_data("../flickr30k_entities/Sentences/"+file_nr+".txt")
-    string = ""
+    strings = []
     for sd in sentences_data:
-        s = sd["sentence"].rstrip(".")
-        string += s+" "
-    return string
+        strings.append(sd["sentence"].rstrip("."))
+    return strings
 
 def get_sentences(file_numbers):
     for file_nr in file_numbers:
-        yield get_doc_sentences(file_nr)
+        for s in get_doc_sentences(file_nr):
+            yield s
         
 def get_input(df, input_set):
     imgs = [nr+".jpg" for nr in input_set]
@@ -90,6 +90,7 @@ def stemmer_vectorizer():
         return [stemmer.stem(w) for w in analyzer(doc)]
     
     vectorizer = TfidfVectorizer(stop_words="english", analyzer=stemmed_words)
-    
+    return vectorizer
+
 if __name__ == "__main__":
     main()

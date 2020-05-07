@@ -21,7 +21,7 @@ VAL_FILE = "../flickr30k_entities/val.txt"
  
 STOP_WORDS = stopwords.words("english")
 
-TXT_DIMENSION = 4092
+TXT_DIMENSION = 2048
 
 """
 USING sklearn
@@ -34,9 +34,9 @@ def main():
     nb_of_words = X.shape[1]
     print("Size of vocabulary = {}".format(nb_of_words))
     pickle.dump(vectorizer, open("./models/vectorizer.pickle","wb"))
+    truncated_representation(X,vectorizer)
     return vectorizer.get_feature_names()
-    #truncated_repesentation(X,vectorizer)
-    
+
 def truncated_representation(X, vectorizer):
     trunc = TruncatedSVD(TXT_DIMENSION)
     txt_trunc = trunc.fit_transform(X)
@@ -52,6 +52,7 @@ def truncated_representation(X, vectorizer):
     test = vectorizer.transform(get_sentences(get_test()))
     test_trunc = trunc.transform(test)
     np.save("../Data/txt_test_trunc_{}.npy".format(TXT_DIMENSION), test_trunc)
+    print("truncs saved")
 
 def get_train():
     with open(TRAIN_FILE, "r") as f:

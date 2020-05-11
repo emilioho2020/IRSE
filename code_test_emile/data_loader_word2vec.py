@@ -72,7 +72,7 @@ class im_word2vec_dataset(Dataset):
     
     def __getitem__(self, index):
         i = index//CAP_PER_IMAGE
-        return (torch.IntTensor([index]), self.img_feats[i], self.sent_feats[index])
+        return (index, self.img_feats[i], self.sent_feats[index])
     
     def get_vecs(self):
         return self.vecs

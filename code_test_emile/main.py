@@ -11,10 +11,14 @@ from train import train
 
 
 #%%
-torch.backends.cudnn.benchmark = True
-train_dataset = im_word2vec_dataset(get_test(), config.IMG_TRAIN_PATH, config.VOCAB_PATH)
-vecs = train_dataset.get_vecs()
-img_network = MapperI(2048, 1024, config.CODE_LENGTH)
-txt_network = MapperT(vecs, config.TXT_EMBEDDING_LENGTH, config.TXT_EMBEDDING_LENGTH, config.CODE_LENGTH)
-
-train(train_dataset, img_network, txt_network, 10)
+def main():
+    torch.backends.cudnn.benchmark = True
+    train_dataset = im_word2vec_dataset(get_test(), config.IMG_TRAIN_PATH, config.VOCAB_PATH)
+    vecs = train_dataset.get_vecs()
+    img_network = MapperI(2048, 1024, config.CODE_LENGTH)
+    txt_network = MapperT(vecs, config.TXT_EMBEDDING_LENGTH, config.TXT_EMBEDDING_LENGTH, config.CODE_LENGTH)
+    
+    train(train_dataset, img_network, txt_network, 10)
+    
+if __name__ == "__main__":
+    main()

@@ -15,9 +15,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 import pickle
 
-TRAIN_FILE = "../flickr30k_entities/train.txt"
-TEST_FILE = "../flickr30k_entities/test.txt"
-VAL_FILE = "../flickr30k_entities/val.txt"
+import config
  
 STOP_WORDS = stopwords.words("english")
 
@@ -55,15 +53,15 @@ def truncated_representation(X, vectorizer):
     print("truncs saved")
 
 def get_train():
-    with open(TRAIN_FILE, "r") as f:
+    with open(config.TRAIN_FILE, "r") as f:
         return f.read().splitlines()
     
 def get_val():
-    with open(VAL_FILE, "r") as f:
+    with open(config.VAL_FILE, "r") as f:
         return f.read().splitlines()
     
 def get_test():
-    with open(TEST_FILE, "r") as f:
+    with open(config.TEST_FILE, "r") as f:
         return f.read().splitlines()
 
 def get_doc_sentences(file_nr):
@@ -92,6 +90,3 @@ def stemmer_vectorizer():
     
     vectorizer = TfidfVectorizer(stop_words="english", analyzer=stemmed_words)
     return vectorizer
-
-if __name__ == "__main__":
-    main()

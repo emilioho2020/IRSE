@@ -13,7 +13,7 @@ from train import train
 #%%
 def main():
     torch.backends.cudnn.benchmark = True
-    train_dataset = im_word2vec_dataset(get_test(), config.IMG_TRAIN_PATH, config.VOCAB_PATH)
+    train_dataset = im_word2vec_dataset(get_train(), config.IMG_TRAIN_PATH, config.VOCAB_PATH)
     vecs = train_dataset.get_vecs()
     img_network = MapperI(2048, 1024, config.CODE_LENGTH)
     txt_network = MapperT(vecs, config.TXT_EMBEDDING_LENGTH, config.TXT_EMBEDDING_LENGTH, config.CODE_LENGTH)

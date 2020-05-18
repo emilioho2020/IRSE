@@ -96,6 +96,9 @@ def train(train_dataset, img_network, txt_network, epochs):
     B = get_B(F,G).cuda()
     train_loader = DataLoader(train_dataset, batch_size = config.BATCH_SIZE, shuffle = True, num_workers = 4, pin_memory = True)
     history = []
+	
+	img_optimizer = optim.SGD(img_network.parameters(), lr=0.01, momentum=0.9)
+	txt_optimizer = optim.SGD(txt_network.parameters(), lr=0.01, momentum=0.9)
     
     for e in tqdm(range(epochs)):
         #Train on images
@@ -107,9 +110,10 @@ def train(train_dataset, img_network, txt_network, epochs):
             F1 = torch.sum(F, dim=1) # F1 : (c) #TODO could increase performance by computing difference instead
             S_b = get_S_img(indices, len(train_dataset))
             dJdF = get_dJdF(F_b, G, S_b, B[:,indices], F1)
-            img_network.zero_grad()
+            img_optimizer.zero_grad()
             out = img_network(im_feats)
             out.backward(dJdF.transpose(0,1)) # can't aggregate on batch?
+			img_optimizer.step()
             
         #Train on text
         txt_network.train()
@@ -120,11 +124,13 @@ def train(train_dataset, img_network, txt_network, epochs):
             G1 = torch.sum(G, dim=1) # F1 : (c) #TODO could increase performance by computing difference instead
             S_b = get_S_txt(indices, len(train_dataset))
             dJdG = get_dJdG(G_b, F, S_b, B[:,indices], G1)
-            txt_network.zero_grad()
+            txt_optimizer.zero_grad()
             out = txt_network(txt_vecs)
             out.backward(dJdG.transpose(0,1)) # can't aggregate on batch?
+			txt_optimizer.step()
     
         #compute B
+		print("computing B")
         B = get_B(F,G)
         
         print("trained model for epoch {}, computing loss...".format(e))

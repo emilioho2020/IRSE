@@ -3,7 +3,7 @@
 """
 CONFIGURATION
 """
-CUDA = True
+CUDA = True and torch.cuda.is_available()
 """
 HYPERPARAMETERS
 """
